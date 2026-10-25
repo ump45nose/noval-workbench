@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["../../src/ui/useDatabase.ts"],
+  "sourcesContent": ["import { useSyncExternalStore } from \"react\";\nimport type { HostAdapter } from \"../host/adapter\";\n\n/** The database plug-in's tables and status, re-rendered on every plug-in update. */\nexport function useDatabase(host: HostAdapter) {\n  return useSyncExternalStore(host.database.subscribe, () => host.database.state);\n}\n"],
+  "mappings": "gFAAA,IAAAA,EAAqC,SAI9B,SAASC,EAAYC,EAAmB,CAC7C,SAAO,wBAAqBA,EAAK,SAAS,UAAW,IAAMA,EAAK,SAAS,KAAK,CAChF",
+  "names": ["import_react", "useDatabase", "host"]
+}
