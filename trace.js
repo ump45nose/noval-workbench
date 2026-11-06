@@ -1,8 +1,9 @@
+import { isSensitiveKey, redactUrlUserinfo } from '../src/host/secrets.js';
+
 const GENERATION_PATHS = new Set([
     '/api/backends/chat-completions/generate',
     '/api/backends/text-completions/generate',
 ]);
-const SECRET_KEY = /^(authorization|api[_-]?key|password|secret|access[_-]?token|refresh[_-]?token|custom_include_headers)$/i;
 const MAX_BODY_BYTES = 128 * 1024;
 const MAX_RECORDS = 20;
 // randomUUID requires HTTPS; getRandomValues also works on LAN HTTP.
@@ -10,23 +11,24 @@ const makeId = () => globalThis.crypto.randomUUID?.() ??
     Array.from(globalThis.crypto.getRandomValues(new Uint8Array(16)), value => value.toString(16).padStart(2, '0')).join('');
 
 export function redact(value, key = '') {
-    if (SECRET_KEY.test(key)) return '[redacted]';
+    if (isSensitiveKey(key)) return '[redacted]';
     if (Array.isArray(value)) return value.map(item => redact(item));
     if (value && typeof value === 'object') {
         return Object.fromEntries(Object.entries(value).map(([name, item]) => [name, redact(item, name)]));
     }
-    if (typeof value === 'string' && /url$/i.test(key)) {
+    if (typeof value !== 'string') return value;
+    if (/url$/i.test(key)) {
         try {
             const url = new URL(value);
             if (url.username) url.username = 'redacted';
             if (url.password) url.password = 'redacted';
             for (const name of url.searchParams.keys()) {
-                if (SECRET_KEY.test(name) || name === 'token') url.searchParams.set(name, '[redacted]');
+                if (isSensitiveKey(name)) url.searchParams.set(name, '[redacted]');
             }
             return url.href;
-        } catch { /* Not a URL; preserve the input. */ }
+        } catch { /* Not a URL; treat it as text. */ }
     }
-    return value;
+    return redactUrlUserinfo(value);
 }
 
 export function snapshot(value) {

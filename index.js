@@ -1,7 +1,11 @@
 // Await loading so the official APP_READY event cannot outrun registration.
 // Carry the host's cache key into the bundled entry for release upgrades.
 import { captureStartup } from './startup.js';
-captureStartup(window.SillyTavern?.getContext?.());
+try {
+    captureStartup(window.SillyTavern?.getContext?.());
+} catch (error) {
+    console.warn('[Workbench] startup diagnostics failed', error);
+}
 const entry = new URL('./dist/index.js', import.meta.url);
 entry.search = new URL(import.meta.url).search || '?v=1.0.0';
 entry.searchParams.set('wb', '1.0.0');

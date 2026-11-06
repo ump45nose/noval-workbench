@@ -7,8 +7,7 @@ export function captureStartup(context) {
     const id = String(performance.timeOrigin), milestones = { bootstrapMs: performance.now() }, longTasks = [];
     let taskObserver, startupCounts;
     let incompleteResources = performance.getEntriesByType('resource').length >= 250;
-    performance.setResourceTimingBufferSize(4000);
-    performance.addEventListener('resourcetimingbufferfull', () => { incompleteResources = true; });
+    try { performance.setResourceTimingBufferSize(4000); performance.addEventListener('resourcetimingbufferfull', () => { incompleteResources = true; }); } catch { /* Unsupported browser: the default buffer applies and an overflow goes unflagged. */ }
     try { taskObserver = new PerformanceObserver(list => { longTasks.push(...list.getEntries().map(entry => ({ startMs: entry.startTime, durationMs: entry.duration }))); if (longTasks.length > 128) longTasks.splice(0, longTasks.length - 128); }); taskObserver.observe({ type: 'longtask', buffered: true }); } catch { /* Unsupported browser: navigation/resource metrics remain available. */ }
     const safeUrl = name => { try { const url = new URL(name); return (url.origin === location.origin ? '' : url.origin) + url.pathname; } catch { return ''; } };
     const snapshot = () => {
@@ -31,8 +30,10 @@ export function captureStartup(context) {
         window.dispatchEvent(new Event('wb-startup-updated'));
     };
     const mark = (name, time = performance.now()) => { milestones[name] ??= time; save(); };
-    context?.eventSource?.on(context.eventTypes.APP_INITIALIZED, () => mark('appInitializedMs'));
-    context?.eventSource?.on(context.eventTypes.APP_READY, () => { const current = window.SillyTavern?.getContext?.() || context; startupCounts = { characters: current?.characters?.length || 0, messages: current?.chat?.length || 0 }; mark('appReadyMs'); setTimeout(() => taskObserver?.disconnect(), 2000); });
+    try {
+        context?.eventSource?.on(context.eventTypes.APP_INITIALIZED, () => mark('appInitializedMs'));
+        context?.eventSource?.on(context.eventTypes.APP_READY, () => { const current = window.SillyTavern?.getContext?.() || context; startupCounts = { characters: current?.characters?.length || 0, messages: current?.chat?.length || 0 }; mark('appReadyMs'); setTimeout(() => taskObserver?.disconnect(), 2000); });
+    } catch { /* Without host events, the 10 s fallback and pagehide still save a report. */ }
     setTimeout(() => { if (!milestones.appReadyMs) save(); }, 10_000);
     window.addEventListener('pagehide', save);
     const probe = { mark, snapshot, get history() { return [snapshot(), ...history.filter(item => item.id !== id)].slice(0, 5); } };
